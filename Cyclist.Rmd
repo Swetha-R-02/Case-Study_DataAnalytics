@@ -1,0 +1,248 @@
+---
+title: "**Cyclistic Bike-Share Analysis Case Study**"
+author: "Swetha R "
+output: pdf_document
+---
+
+**Introduction:**
+
+This report focuses on analyzing the usage patterns of Cyclistic, a bike-share service in Chicago, by comparing the behaviors of annual members and casual riders. The goal is to derive insights that can inform marketing strategies aimed at converting casual riders into annual members. By examining data from January to December 2022, the report provides a comprehensive overview of how different groups use Cyclistic bikes throughout the year.
+
+**Business Task:**
+
+* To understand how annual members and casual riders differ in using Cyclistic bikes
+
+* To identify motivations for casual riders to become members
+
+* To explore stratergies for digital media to influence casual riders to become members
+
+**Data Description:**
+
+The given separate monthly data from January 2022 to December 2022 has been viewed and combined together in Microsoft SQL. And the columns which are most relevant and informative are alone added into the columns
+
+**ride_id:** Unique identifier for each trip
+
+**rideable_type:** Type of bike used (electric, docked, classic).
+
+**started_at:** Start time of the trip.
+
+**ended_at:** End time of the trip.
+
+**member_casual:** Indicates whether the rider is a member or casual.
+
+**Data Link:**  https://divvy-tripdata.s3.amazonaws.com/index.html
+
+
+**Load Data:**
+
+```{r}
+# Load necessary libraries
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(scales) 
+```
+
+
+```{r}
+# Load data from Excel file
+data <- read_excel("D:\\Course\\Google Analytics\\Cyclist Data\\Cycle.xlsx")
+
+# Display the first few rows of the dataset
+head(data)
+```
+
+
+**Data Manipulation:**
+
+```{r}
+# Convert started_at and ended_at to POSIXct
+data$started_at <- as.POSIXct(data$started_at, format = "%H:%M:%S")
+data$ended_at <- as.POSIXct(data$ended_at, format = "%H:%M:%S")
+
+# Calculate ride length in minutes
+data$ride_length <- as.numeric(difftime(data$ended_at, data$started_at, units = "mins"))
+```
+
+**Summary of Analysis:**
+
+**1) Ride Frequency:**
+
+```{r}
+# Verify total trip counts by customer type
+trip_counts <- data %>%
+  group_by(member_casual) %>%
+  summarize(total_trips = n())
+trip_counts
+```
+
+```{r}
+# Plot total number of trips by customer type with different colors
+ggplot(trip_counts, aes(x = member_casual, y = total_trips, fill = member_casual)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  scale_y_continuous(labels = scales::comma) + # Format y-axis labels with commas
+  labs(title = "Total Number of Trips by Customer Type",
+       x = "Customer Type",
+       y = "Total Number of Trips") +
+  theme_minimal()
+```
+
+Annual members take more frequent trips than casual riders.
+
+**2) Ride Duration:**
+
+```{r}
+# Calculate average ride length by customer type
+avg_ride_length <- data %>%
+  group_by(member_casual) %>%
+  summarize(avg_length = mean(ride_length, na.rm = TRUE))
+avg_ride_length
+```
+
+```{r}
+
+# Plot average ride length by customer type with different colors
+ggplot(avg_ride_length, aes(x = member_casual, y = avg_length, fill = member_casual)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  labs(title = "Average Ride Length by Customer Type",
+       x = "Customer Type",
+       y = "Average Ride Length (minutes)") +
+  theme_minimal()
+```
+Casual riders tend to have longer ride duration compared to members.
+
+**3) Peak Hours:**
+
+```{r}
+# Extract hour from started_at
+data$hour <- format(data$started_at, "%H")
+
+# Count trips by hour and customer type
+hourly_demand <- data %>%
+  group_by(hour, member_casual) %>%
+  summarize(trip_count = n(), .groups = 'drop')
+
+# Plot bike demand by hour with separate lines for casual and members
+ggplot(hourly_demand, aes(x = as.numeric(hour), y = trip_count, color = member_casual)) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  labs(title = "Bike Demand by Hour",
+       x = "Hour of Day",
+       y = "Number of Trips",
+       color = "Customer Type") +
+  theme_minimal()
+```
+Both groups show increased activity during evening at 5pm (shown as 17).
+
+**4) Busiest Weekday:**
+
+```{r}
+# Extract weekday from started_at
+data$weekday <- weekdays(data$started_at)
+
+# Count trips by weekday and customer type
+weekday_demand <- data %>%
+  group_by(weekday, member_casual) %>%
+  summarize(total_trips = n(), .groups = 'drop')
+
+# Plot total rides by weekday with separate bars for casual and members
+ggplot(weekday_demand, aes(x = reorder(weekday, -total_trips), y = total_trips, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  labs(title = "Total Rides by Weekday",
+       x = "Weekday",
+       y = "Total Rides",
+       fill = "Customer Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+The busiest day was from Monday to Friday for annual members and Saturday and Sunday for Casual riders.
+
+**5) Busiest Month:**
+
+```{r}
+# Extract month from started_at
+data$month <- format(data$started_at, "%B") # Full month names
+data$month <- factor(data$month, levels = month.name) # Ensure months are in order
+
+# Count trips by month and customer type
+monthly_demand <- data %>%
+  group_by(month, member_casual) %>%
+  summarize(total_trips = n(), .groups = 'drop')
+
+# Plot total rides by month with separate bars for members and casual riders
+ggplot(monthly_demand, aes(x = month, y = total_trips, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  labs(title = "Total Rides by Month",
+       x = "Month",
+       y = "Total Rides",
+       fill = "Customer Type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for better readability
+
+```
+
+Most rides by casual and annual members were taken in the month of April.
+
+
+**6) Most preferred bike type:**
+
+```{r}
+# Count trips by bike type and customer type
+bike_type_demand <- data %>%
+  group_by(rideable_type, member_casual) %>%
+  summarize(total_trips = n(), .groups = 'drop')
+bike_type_demand
+```
+
+
+```{r}
+# Plot total rides by bike type with y-axis labels formatted
+ggplot(bike_type_demand, aes(x = rideable_type, y = total_trips, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("member" = "#A9D1E2", "casual" = "#D4A5A5")) +
+  scale_y_continuous(labels = scales::comma) + # Format y-axis labels with commas
+  labs(title = "Total Rides by Bike Type",
+       x = "Bike Type",
+       y = "Total Rides",
+       fill = "Customer Type") +
+  theme_minimal()
+
+```
+Members choose classic bikes with slight high proportion compared to electric bikes. And casual prefer electric bikes to classic.
+
+
+**Key Findings:**
+
+Annual members take frequent, shorter trips, mainly on weekdays, while casual riders prefer longer trips on weekends. Both groups peak at 5 PM, with April being the busiest month. Classic bikes are favored by members, while casual riders prefer electric bikes.
+
+**Recommendations:**
+
+1) Can launch  a seasonal membership program targeted at casual riders during holiday seasons (Eg: Summer/Winter Memberships).
+
+2) Promote the convenience and cost-effectiveness of annual memberships, highlighting the savings for frequent users.
+
+3) Colab with content creators on Instagram, YouTube, and other social media platforms to promote Cyclistic memberships.
+
+4) Focus on promoting the benefits and safe use of electric bikes as both members and casuals use it more.
+
+5) More data is needed to determine the proportion of casual riders who are residents and vistors. This information will help tailor marketing strategies and membership offers more effectively.
+
+6) More data is required as many start and end station name is not mentioned. If known, we can consider enhancing facilities or increasing bike availability at popular stations to accommodate high demand, especially during peak hours.
+
+7) Also, cyclistic could consider offering promotions or discounts for round trips(start and end station are same).
+
+
+
+**Summary:**
+
+a) Annual members take frequent, shorter trips, mainly on weekdays for their day-to-day tasks, while casual riders prefer longer trips on weekends.
+
+b) Identify casual riders who are local residents and offer seasonal membership.
+
+c) Collaborate with local content creators to document bikeshare trips and attract new customers through social media.
+
